@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.indivassignment6q2.ui.theme.IndivAssignment6Q2Theme
+import java.util.Locale
 import kotlin.math.PI
 
 class MainActivity : ComponentActivity() {
@@ -64,6 +65,11 @@ fun CompassAndLevelScreen() {
     var azimuth by remember { mutableFloatStateOf(0f) }
     var pitch by remember { mutableFloatStateOf(0f) }
     var roll by remember { mutableFloatStateOf(0f) }
+    
+    // State for Gyroscope
+    var gyroX by remember { mutableFloatStateOf(0f) }
+    var gyroY by remember { mutableFloatStateOf(0f) }
+    var gyroZ by remember { mutableFloatStateOf(0f) }
 
     // Sensor Data Holders
     var gravity by remember { mutableStateOf<FloatArray?>(null) }
@@ -73,6 +79,7 @@ fun CompassAndLevelScreen() {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+        val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
         val sensorListener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent?) {
@@ -80,6 +87,11 @@ fun CompassAndLevelScreen() {
                 when (event.sensor.type) {
                     Sensor.TYPE_ACCELEROMETER -> gravity = event.values.clone()
                     Sensor.TYPE_MAGNETIC_FIELD -> geomagnetic = event.values.clone()
+                    Sensor.TYPE_GYROSCOPE -> {
+                        gyroX = event.values[0]
+                        gyroY = event.values[1]
+                        gyroZ = event.values[2]
+                    }
                 }
 
                 if (gravity != null && geomagnetic != null) {
@@ -107,6 +119,7 @@ fun CompassAndLevelScreen() {
 
         accelerometer?.let { sensorManager.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_UI) }
         magnetometer?.let { sensorManager.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_UI) }
+        gyroscope?.let { sensorManager.registerListener(sensorListener, it, SensorManager.SENSOR_DELAY_UI) }
 
         onDispose {
             sensorManager.unregisterListener(sensorListener)
@@ -130,13 +143,21 @@ fun CompassAndLevelScreen() {
                 Text("${azimuth.toInt()}° ${getDirectionLabel(azimuth)}")
             }
 
-            // Step 3: Level Section
+            // Level Section
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("Digital Level", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
                 LevelView(pitch = pitch, roll = roll)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Pitch: ${pitch.toInt()}°  Roll: ${roll.toInt()}°")
+            }
+            
+            // Step 4: Gyroscope Section
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                 Text("Rotation Speed (Gyro)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                 Text("X: ${String.format(Locale.US, "%.2f", gyroX)} rad/s")
+                 Text("Y: ${String.format(Locale.US, "%.2f", gyroY)} rad/s")
+                 Text("Z: ${String.format(Locale.US, "%.2f", gyroZ)} rad/s")
             }
         }
     }
