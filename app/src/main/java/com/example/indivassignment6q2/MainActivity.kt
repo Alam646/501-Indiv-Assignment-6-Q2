@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -47,18 +50,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             IndivAssignment6Q2Theme {
-                CompassScreen()
+                CompassAndLevelScreen()
             }
         }
     }
 }
 
 @Composable
-fun CompassScreen() {
+fun CompassAndLevelScreen() {
     val context = LocalContext.current
 
-    // State for Compass
+    // State for Orientation
     var azimuth by remember { mutableFloatStateOf(0f) }
+    var pitch by remember { mutableFloatStateOf(0f) }
+    var roll by remember { mutableFloatStateOf(0f) }
 
     // Sensor Data Holders
     var gravity by remember { mutableStateOf<FloatArray?>(null) }
@@ -84,11 +89,15 @@ fun CompassScreen() {
                         val orientation = FloatArray(3)
                         SensorManager.getOrientation(R, orientation)
                         
-                        // orientation[0] is Azimuth in radians
-                        var az = (orientation[0] * 180 / PI).toFloat()
-                        // Normalize to 0-360
-                        if (az < 0) az += 360
-                        azimuth = az
+                        // orientation[0] = Azimuth, [1] = Pitch, [2] = Roll (radians)
+                        val az = (orientation[0] * 180 / PI).toFloat()
+                        val pt = (orientation[1] * 180 / PI).toFloat()
+                        val rl = (orientation[2] * 180 / PI).toFloat()
+
+                        // Normalize Azimuth
+                        azimuth = if (az < 0) az + 360 else az
+                        pitch = pt
+                        roll = rl
                     }
                 }
             }
@@ -110,24 +119,25 @@ fun CompassScreen() {
                 .fillMaxSize()
                 .padding(innerPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+            verticalArrangement = Arrangement.SpaceEvenly
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "Compass",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            // Display the visual compass
-            CompassView(azimuth = azimuth)
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "${azimuth.toInt()}° ${getDirectionLabel(azimuth)}",
-                style = MaterialTheme.typography.titleLarge
-            )
+            // Compass Section
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Compass", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                CompassView(azimuth = azimuth)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("${azimuth.toInt()}° ${getDirectionLabel(azimuth)}")
+            }
+
+            // Step 3: Level Section
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Digital Level", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                LevelView(pitch = pitch, roll = roll)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Pitch: ${pitch.toInt()}°  Roll: ${roll.toInt()}°")
+            }
         }
     }
 }
@@ -135,54 +145,97 @@ fun CompassScreen() {
 @Composable
 fun CompassView(azimuth: Float) {
     Box(contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(250.dp)) {
+        Canvas(modifier = Modifier.size(150.dp)) {
             val center = Offset(size.width / 2, size.height / 2)
             val radius = size.width / 2
             
-            // 1. Draw Outer Ring
-            drawCircle(
-                color = Color.Gray,
-                style = Stroke(width = 4.dp.toPx())
-            )
+            // Outer Ring
+            drawCircle(color = Color.Gray, style = Stroke(width = 4.dp.toPx()))
             
-            // 2. Rotate the entire needle assembly based on azimuth
-            // We rotate by -azimuth so the needle stays pointing North relative to the phone
+            // Rotating Needle
             rotate(degrees = -azimuth, pivot = center) {
-                
-                // North Needle (Red)
                 val northPath = Path().apply {
-                    moveTo(center.x, center.y - radius + 20) // Tip
-                    lineTo(center.x - 15, center.y) // Base Left
-                    lineTo(center.x + 15, center.y) // Base Right
+                    moveTo(center.x, center.y - radius + 10)
+                    lineTo(center.x - 10, center.y)
+                    lineTo(center.x + 10, center.y)
                     close()
                 }
                 drawPath(northPath, Color.Red)
                 
-                // South Needle (Blue)
                 val southPath = Path().apply {
-                    moveTo(center.x, center.y + radius - 20) // Tip
-                    lineTo(center.x - 15, center.y) // Base Left
-                    lineTo(center.x + 15, center.y) // Base Right
+                    moveTo(center.x, center.y + radius - 10)
+                    lineTo(center.x - 10, center.y)
+                    lineTo(center.x + 10, center.y)
                     close()
                 }
                 drawPath(southPath, Color.Blue)
             }
-            
-            // 3. Draw Center Pin
+        }
+        Text("N", modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp), style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+fun LevelView(pitch: Float, roll: Float) {
+    // A bubble level: The "bubble" moves opposite to the tilt.
+    // If you tilt left (roll negative), bubble moves right.
+    // Pitch up (positive), bubble moves down.
+    
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(150.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFDAF5DA)) // Light Green background
+    ) {
+        // Crosshairs
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawLine(
+                color = Color.Black.copy(alpha = 0.3f),
+                start = Offset(size.width / 2, 0f),
+                end = Offset(size.width / 2, size.height),
+                strokeWidth = 2f
+            )
+            drawLine(
+                color = Color.Black.copy(alpha = 0.3f),
+                start = Offset(0f, size.height / 2),
+                end = Offset(size.width, size.height / 2),
+                strokeWidth = 2f
+            )
+            // Center target circle
             drawCircle(
-                color = Color.Black,
-                radius = 8.dp.toPx(),
-                center = center
+                color = Color.Black.copy(alpha = 0.3f),
+                radius = 10.dp.toPx(),
+                style = Stroke(width = 2f)
             )
         }
+
+        // The Bubble
+        // Max tilt to display (e.g., 45 degrees hits the edge)
+        val maxTilt = 45f
         
-        // Static Cardinal Direction Labels (N, S, E, W)
-        // These stay fixed relative to the UI (phone), visualizing that "Up" on the screen is the direction we are facing
-        // Alternatively, for a compass, usually "N" rotates. 
-        // Let's Draw fixed N marker to indicate "Up is North" if the needle was fixed?
-        // No, standard digital compass: Needle points Real North. Phone Top points Heading.
-        // So we draw "N" on the top of the circle, but it should rotate with the circle if we were rotating the dial.
-        // For simplicity: We rotated the NEEDLE. So the needle points to true North.
+        // Calculate displacement
+        // Roll controls X axis, Pitch controls Y axis
+        // We clamp values so the bubble stays inside
+        val normRoll = (roll / maxTilt).coerceIn(-1f, 1f)
+        val normPitch = (pitch / maxTilt).coerceIn(-1f, 1f)
+        
+        // Map -1..1 to pixel offset.
+        // Width is 150dp. Max offset is approx 75dp - bubble radius.
+        
+        Canvas(modifier = Modifier.size(150.dp)) {
+            val center = Offset(size.width / 2, size.height / 2)
+            val maxOffset = size.width / 2 - 20.dp.toPx()
+            
+            val bubbleX = center.x + (normRoll * maxOffset)
+            val bubbleY = center.y + (normPitch * maxOffset)
+            
+            drawCircle(
+                color = Color(0xFF32CD32), // Darker Green Bubble
+                radius = 15.dp.toPx(),
+                center = Offset(bubbleX, bubbleY)
+            )
+        }
     }
 }
 
